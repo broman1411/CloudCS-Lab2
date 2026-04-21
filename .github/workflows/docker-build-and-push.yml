@@ -39,7 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: docker login
-        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin  
+        run: | 
+          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD  
       - name: Build the Keycloak Docker image
         run: docker build ./keycloak/docker --tag $DOCKER_USER/$REPO_NAME:keycloak
       - name: Push the Keycloak Docker image
