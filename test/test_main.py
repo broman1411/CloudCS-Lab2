@@ -5,6 +5,24 @@ from keycloak.uma_permissions import AuthStatus
 from typing import Any
 
 
+# Выносим класс наружу, чтобы он был виден во всех функциях
+class FakedKeycloakOpenID:
+    @staticmethod
+    def well_known(*args, **kwargs):
+        return {"token_endpoint": "fakedendpoint"}
+
+    @staticmethod
+    def has_uma_access(token: str, *args, **kwargs) -> AuthStatus:
+        if token == "Ok":
+            return AuthStatus(True, True, set())
+        elif token == "Not_logged":
+            return AuthStatus(False, False, set())
+        elif token == "Not_authorized":
+            return AuthStatus(True, False, set())
+        else:
+            return AuthStatus(False, False, set())
+
+
 @pytest.fixture
 def init_test_client(monkeypatch) -> TestClient:
     def mock_make_inference(*args, **kwargs) -> dict[str, float]:
@@ -14,22 +32,7 @@ def init_test_client(monkeypatch) -> TestClient:
         return None
 
     def mock_keycloak_openid(*args, **kwargs) -> Any:
-        class FakedKeycloakOpenID:
-            @staticmethod
-            def well_known(*args, **kwargs):
-                return {"token_endpoint": "fakedendpoint"}
-
-            @staticmethod
-            def has_uma_access(token: str, *args, **kwargs) -> AuthStatus:
-                if token == "Ok":
-                    return AuthStatus(True, True, set())
-                elif token == "Not_logged":
-                    return AuthStatus(False, False, set())
-                elif token == "Not_authorized":
-                    return AuthStatus(True, False, set())
-                else:
-                    return AuthStatus(False, False, set())
-        return FakedKeycloakOpenID
+        return FakedKeycloakOpenID()
 
     def mock_get_keycloak_data(*args, **kwargs):
         return FakedKeycloakOpenID(), "fakedendpoint"
@@ -54,7 +57,6 @@ def test_healthcheck(init_test_client) -> None:
 
 
 def test_token_correctness(init_test_client) -> None:
-    """Тест с правильным токеном (авторизован)"""
     response = init_test_client.post(
         "/predictions",
         headers={"Authorization": "Bearer Ok"},
@@ -72,7 +74,6 @@ def test_token_correctness(init_test_client) -> None:
 
 
 def test_token_not_correctness(init_test_client):
-    """Тест с невалидным токеном (не залогинен)"""
     response = init_test_client.post(
         "/predictions",
         headers={"Authorization": "Bearer Not_logged"},
@@ -90,7 +91,6 @@ def test_token_not_correctness(init_test_client):
 
 
 def test_access_denied(init_test_client):
-    """Тест с токеном без прав (залогинен, но не авторизован)"""
     response = init_test_client.post(
         "/predictions",
         headers={"Authorization": "Bearer Not_authorized"},
@@ -108,7 +108,6 @@ def test_access_denied(init_test_client):
 
 
 def test_token_absent(init_test_client):
-    """Тест без токена"""
     response = init_test_client.post(
         "/predictions",
         json={
@@ -125,7 +124,6 @@ def test_token_absent(init_test_client):
 
 
 def test_inference(init_test_client):
-    """Тест корректного предсказания"""
     response = init_test_client.post(
         "/predictions",
         headers={"Authorization": "Bearer Ok"},
