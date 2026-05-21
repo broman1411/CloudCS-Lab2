@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster
+FROM python:3.13-slim
 RUN groupadd --gid 1000 service && \
     useradd --uid 1000 --gid service --shell /bin/bash --create-home service
 WORKDIR /home/service
